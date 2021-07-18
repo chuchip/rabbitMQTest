@@ -1,26 +1,40 @@
 package com.bosonit.batchmq;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Configuration
 public class RabbitConfiguration {
-    static final String TOPIC_EXCHANGE_NAME = "spring-boot-exchange2";
-    @Value("${listener.key}")
+    static final String TOPIC_EXCHANGE_NAME = "spring-boot-exchange";
+    @Value("${listener.route}")
     public String ROUTING_KEY ;
     private static final boolean IS_DURABLE_QUEUE = false;
-    public static final String QUEUE_NAME = "spring-boot";
-    static final String RECEIVE_METHOD_NAME = "receiveMessage";
+    @Value("${listener.manual}")
+    public  String QUEUE_NAME;
+    public final static String QUEUE_NAME2= "ManualQueue2";
 
     @Bean
-    Queue queue() {
+    Queue manualQueue() {
         return new Queue(QUEUE_NAME, IS_DURABLE_QUEUE);
+    }
+
+    @Bean
+    Queue manualQueue2() {
+        return new Queue(QUEUE_NAME2, IS_DURABLE_QUEUE);
+    }
+
+    @Bean
+    Queue queueSpring(@Value("${listener.rabbitReceiver}") String springQueue)
+    {
+        return new Queue(springQueue, IS_DURABLE_QUEUE);
     }
 
     @Bean
@@ -29,11 +43,13 @@ public class RabbitConfiguration {
     }
 
     @Bean
-    Binding binding(Queue queue, TopicExchange exchange) {
-        System.out.println(String.format("\n\n-----------------------------\nListener. Routing key %s",ROUTING_KEY));
-        return BindingBuilder.bind(queue).to(exchange).with(ROUTING_KEY);
+    Binding binding(Queue manualQueue, TopicExchange exchange) {
+        return BindingBuilder.bind(manualQueue).to(exchange).with(ROUTING_KEY);
     }
-
+    @Bean
+    Binding binding2(Queue manualQueue2, TopicExchange exchange) {
+        return BindingBuilder.bind(manualQueue2).to(exchange).with(ROUTING_KEY);
+    }
     @Bean
     SimpleMessageListenerContainer container(ConnectionFactory connectionFactory,
                                              MessageListenerAdapter listenerAdapter) {
@@ -45,13 +61,29 @@ public class RabbitConfiguration {
     }
 
     @Bean
-    MessageListenerAdapter listenerAdapter(Receiver receiver) {
-        return new MessageListenerAdapter( receiver, RECEIVE_METHOD_NAME);
+    MessageListenerAdapter listenerAdapter(ManualReceiver receiver) {
+        return new MessageListenerAdapter( receiver);
+    }
+    /**
+     * Establecer profile conecction para poder definir nuestra propia configuracion.
+     * En otro caso cogera los valores del fichero de application.properties
+     * @return
+     */
+    @Profile("connection")
+    @Bean
+    public ConnectionFactory connectionFactory() {
+        CachingConnectionFactory connectionFactory = new CachingConnectionFactory("localhost", 5672);
+        connectionFactory.setUsername("guest");
+        connectionFactory.setPassword("guest");
+
+        System.out.println("Creating connection factory");
+
+        return connectionFactory;
     }
 }
 
 @Component
-class Receiver implements MessageListener
+class ManualReceiver implements MessageListener
 {
 
     @Override

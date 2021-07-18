@@ -16,30 +16,20 @@ import java.util.List;
 public class Controller {
     @Autowired
     private RabbitTemplate rabbitTemplate;
-    List<String> colas=new ArrayList<>();
-    @Autowired
-    ConnectionFactory connectionFactory;
-    public Controller()
-    {
-        colas.add(RabbitConfiguration.QUEUE_NAME);
-    }
-    @GetMapping("/{n1}/{ruta}/{msg}")
-    public void sendMsgTopic( @PathVariable String n1, @PathVariable String ruta, @PathVariable String msg)
-    {
-        System.out.println("Creando cola para topic: "+n1);
-        if (!colas.contains(n1))
-        {
-            SimpleMessageListenerContainer container = new SimpleMessageListenerContainer();
-            container.setConnectionFactory(connectionFactory);
-            container.setQueueNames(n1);
-        }
 
-        rabbitTemplate.convertAndSend(n1, ruta, msg);
+
+    @GetMapping("/exchange/{ruta}/{msg}")
+    public String sendMsgTopic( @PathVariable String ruta, @PathVariable String msg)
+    {
+        rabbitTemplate.convertAndSend(RabbitConfiguration.TOPIC_EXCHANGE_NAME, ruta, msg);
+        return String.format("Send message %s a exchange %s a traves de la ruta: %s",msg,RabbitConfiguration.TOPIC_EXCHANGE_NAME, ruta);
+
     }
 
     @GetMapping("/{ruta}/{msg}")
-    public void sendMsg(@PathVariable  String ruta, @PathVariable String msg)
+    public String sendMsg(@PathVariable  String ruta, @PathVariable String msg)
     {
-        rabbitTemplate.convertAndSend(RabbitConfiguration.TOPIC_EXCHANGE_NAME, ruta, msg);
+        rabbitTemplate.convertAndSend(ruta, msg);
+        return String.format("Send message %s a ruta: %s",msg,ruta);
     }
 }
